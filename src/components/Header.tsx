@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { BookOpen, Menu, X, User, LogIn } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { BookOpen, Menu, X, User, LogIn, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -24,13 +27,17 @@ const Header = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
+
   return (
     <header
-      className={`sticky top-0 z-50 transition-all duration-300 ${
-        scrolled
+      className={`sticky top-0 z-50 transition-all duration-300 ${scrolled
           ? "border-b border-border bg-background/95 shadow-nav backdrop-blur-xl"
           : "bg-background/80 backdrop-blur-lg"
-      }`}
+        }`}
     >
       <div className="container mx-auto flex h-16 items-center justify-between px-4 lg:h-[4.25rem]">
         <Link to="/" className="flex items-center gap-2.5">
@@ -50,11 +57,10 @@ const Header = () => {
             <Link
               key={link.to}
               to={link.to}
-              className={`relative rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                isActive(link.to)
+              className={`relative rounded-lg px-4 py-2 text-sm font-medium transition-colors ${isActive(link.to)
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               {link.label}
               {isActive(link.to) && (
@@ -69,18 +75,40 @@ const Header = () => {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          <Link to="/login">
-            <Button variant="ghost" size="sm" className="text-muted-foreground">
-              <LogIn className="mr-1.5 h-4 w-4" />
-              Login
-            </Button>
-          </Link>
-          <Link to="/signup">
-            <Button size="sm" className="bg-accent font-semibold text-accent-foreground shadow-sm hover:bg-accent/90">
-              <User className="mr-1.5 h-4 w-4" />
-              Sign Up
-            </Button>
-          </Link>
+          {user ? (
+            <>
+              <Link to="/dashboard">
+                <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5">
+                  <User className="h-4 w-4" />
+                  {user.name.split(" ")[0]}
+                </Button>
+              </Link>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link to="/login">
+                <Button variant="ghost" size="sm" className="text-muted-foreground">
+                  <LogIn className="mr-1.5 h-4 w-4" />
+                  Login
+                </Button>
+              </Link>
+              <Link to="/signup">
+                <Button size="sm" className="bg-accent font-semibold text-accent-foreground shadow-sm hover:bg-accent/90">
+                  <User className="mr-1.5 h-4 w-4" />
+                  Sign Up
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile toggle */}
@@ -109,26 +137,45 @@ const Header = () => {
                   key={link.to}
                   to={link.to}
                   onClick={() => setMobileOpen(false)}
-                  className={`rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    isActive(link.to)
+                  className={`rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive(link.to)
                       ? "bg-primary-light text-primary"
                       : "text-muted-foreground hover:bg-muted"
-                  }`}
+                    }`}
                 >
                   {link.label}
                 </Link>
               ))}
               <div className="mt-3 flex gap-2 border-t border-border pt-4">
-                <Link to="/login" className="flex-1" onClick={() => setMobileOpen(false)}>
-                  <Button variant="outline" size="sm" className="w-full">
-                    Login
-                  </Button>
-                </Link>
-                <Link to="/signup" className="flex-1" onClick={() => setMobileOpen(false)}>
-                  <Button size="sm" className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
-                    Sign Up
-                  </Button>
-                </Link>
+                {user ? (
+                  <>
+                    <Link to="/dashboard" className="flex-1" onClick={() => setMobileOpen(false)}>
+                      <Button variant="outline" size="sm" className="w-full gap-1.5">
+                        <User className="h-4 w-4" />{user.name.split(" ")[0]}
+                      </Button>
+                    </Link>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 gap-1.5"
+                      onClick={() => { handleLogout(); setMobileOpen(false); }}
+                    >
+                      <LogOut className="h-4 w-4" /> Logout
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/login" className="flex-1" onClick={() => setMobileOpen(false)}>
+                      <Button variant="outline" size="sm" className="w-full">
+                        Login
+                      </Button>
+                    </Link>
+                    <Link to="/signup" className="flex-1" onClick={() => setMobileOpen(false)}>
+                      <Button size="sm" className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                        Sign Up
+                      </Button>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

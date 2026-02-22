@@ -1,13 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import BookCard from "@/components/BookCard";
-import { mockBooks, departments, semesters, conditions } from "@/data/mockBooks";
+import { departments, semesters, conditions } from "@/data/mockBooks";
+import { booksAPI } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search, X } from "lucide-react";
+import { Search, X, Loader2 } from "lucide-react";
 
 const Browse = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -17,16 +18,35 @@ const Browse = () => {
   const [department, setDepartment] = useState(searchParams.get("department") || "all");
   const [condition, setCondition] = useState("all");
   const [maxPrice, setMaxPrice] = useState("");
+  const [books, setBooks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
 
-  const filtered = useMemo(() => {
-    return mockBooks.filter((b) => {
-      if (search && !b.title.toLowerCase().includes(search.toLowerCase()) && !b.author.toLowerCase().includes(search.toLowerCase()) && !b.subject.toLowerCase().includes(search.toLowerCase())) return false;
-      if (semester !== "all" && b.semester !== Number(semester)) return false;
-      if (department !== "all" && b.department !== department) return false;
-      if (condition !== "all" && b.condition !== condition) return false;
-      if (maxPrice && b.price > Number(maxPrice)) return false;
-      return !b.sold;
-    });
+  // Fetch books from backend
+  useEffect(() => {
+    const fetchBooks = async () => {
+      setLoading(true);
+      try {
+        const data = await booksAPI.getAll({
+          search: search || undefined,
+          semester: semester !== "all" ? semester : undefined,
+          department: department !== "all" ? department : undefined,
+          condition: condition !== "all" ? condition : undefined,
+          maxPrice: maxPrice || undefined,
+        });
+        setBooks(data.books);
+        setTotal(data.total);
+      } catch (error) {
+        console.error("Failed to fetch books:", error);
+        setBooks([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Debounce search
+    const timer = setTimeout(fetchBooks, 300);
+    return () => clearTimeout(timer);
   }, [search, semester, department, condition, maxPrice]);
 
   const clearFilters = () => {
@@ -109,15 +129,22 @@ const Browse = () => {
                   <X className="h-3 w-3" /> Clear filters
                 </Button>
               )}
-              <span className="ml-auto text-sm text-muted-foreground">{filtered.length} books found</span>
+              <span className="ml-auto text-sm text-muted-foreground">
+                {loading ? "Loading..." : `${total} books found`}
+              </span>
             </div>
           </div>
 
           {/* Results */}
-          {filtered.length > 0 ? (
+          {loading ? (
+            <div className="py-20 text-center">
+              <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+              <p className="mt-4 text-muted-foreground">Loading books...</p>
+            </div>
+          ) : books.length > 0 ? (
             <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {filtered.map((book) => (
-                <BookCard key={book.id} book={book} />
+              {books.map((book) => (
+                <BookCard key={book._id} book={{ ...book, id: book._id }} />
               ))}
             </div>
           ) : (
