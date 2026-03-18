@@ -1,73 +1,96 @@
-# Welcome to your Lovable project
+# ReRead IOE – Second-Hand Book Marketplace
 
-## Project info
+A professional web application connecting IOE students to buy and sell second-hand engineering books. Built with a full-stack focus, with a scalable backend and clean frontend design.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+---
 
-## How can I edit this code?
+## Project Overview
 
-There are several ways of editing your application.
+**Live Demo:** [ReRead IOE Live](https://your-live-link.com)  
+**GitHub Repository:** [GitHub Repo](https://github.com/yourrepo)
 
-**Use Lovable**
+ReRead IOE allows students to:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- Browse and filter second-hand books by semester, department, and subject.
+- List their own books for sale with images and descriptions.
+- View book details, wishlist items, and manage their dashboard.
+- Experience smooth, responsive, and minimalistic UI/UX.
 
-Changes made via Lovable will be committed automatically to this repo.
+This project emphasizes **backend architecture, RESTful APIs, and database modeling** while providing a functional frontend for demonstration.
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Technologies Used
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+**Backend:**
 
-Follow these steps:
+- Express.js
+- MongoDB (with Mongoose)
+- RESTful APIs
+- Cloudinary for image storage
+- JWT Authentication
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+**Frontend:**
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
 - React
-- shadcn-ui
 - Tailwind CSS
+- Modular component structure
+- Multi-language ready (English/Nepali)
 
-## How can I deploy this project?
+**Tools & Practices:**
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+- Git & GitHub for version control
+- Agile workflow familiarity (Jira)
+- CI/CD basics with Docker
+- Comfortable with AI-assisted development tools
 
-## Can I connect a custom domain to my Lovable project?
+---
 
-Yes, you can!
+## Features
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+**User Management**
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- Secure signup, login, and logout.
+- User dashboards for managing listings, wishlist, and profile.
+
+**Book Marketplace**
+
+- Add, edit, and delete book listings.
+- Upload book images with Cloudinary.
+- Browse by semester, department, subject, and price.
+
+**Admin & System Design**
+
+- Scalable backend architecture.
+- REST API endpoints for all core operations.
+- Clean database schema with user and book relations.
+
+**Frontend**
+
+- Modern responsive design.
+- Clean dashboard and card-based listing views.
+- Easy navigation and interaction.
+
+---
+
+## Installation & Setup
+
+Clone the repository and run locally:
+
+```bash
+# Step 1: Clone the repository
+git clone https://github.com/yourrepo.git
+
+# Step 2: Navigate to project directory
+cd reread-ioe
+
+# Step 3: Install dependencies
+npm install
+
+# Step 4: Start backend server
+npm run dev
+
+# Step 5: Start frontend (if separate)
+cd client
+npm install
+npm run dev
