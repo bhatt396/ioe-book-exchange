@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { supabaseFetch } = require('../config/db');
+const { toUser } = require('../utils/recordMappers');
 
-// Protect routes — require authentication
 const protect = async (req, res, next) => {
     let token;
 
@@ -21,15 +21,18 @@ const protect = async (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = await User.findById(decoded.id);
+        const { data: users } = await supabaseFetch(
+            `/users?id=eq.${encodeURIComponent(decoded.id)}&select=*`
+        );
 
-        if (!req.user) {
+        if (!users[0]) {
             return res.status(401).json({
                 success: false,
                 message: 'Not authorized — user not found',
             });
         }
 
+        req.user = toUser(users[0]);
         next();
     } catch (error) {
         return res.status(401).json({

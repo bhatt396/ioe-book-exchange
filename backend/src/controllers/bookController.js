@@ -1,53 +1,56 @@
-// ============================================================
-// Book Controller
-// Handles all CRUD operations for book listings.
-// Images are uploaded to Cloudinary and only the URL is
-// stored in MongoDB. On delete/update, old images are
-// removed from Cloudinary using the stored public_id.
-// ============================================================
-
-const Book = require('../models/Book');
-const User = require('../models/User');
 const cloudinary = require('../config/cloudinary');
+const { supabaseFetch } = require('../config/db');
+const { toBook } = require('../utils/recordMappers');
 
-// -------------------------------------------------------
-// Helper: Extract Cloudinary public_id from a URL
-// Cloudinary URLs look like:
-// https://res.cloudinary.com/<cloud>/image/upload/v123/folder/filename.ext
-// We need "folder/filename" as the public_id for deletion.
-// -------------------------------------------------------
 const getPublicIdFromUrl = (url) => {
     if (!url || !url.includes('cloudinary')) return null;
     try {
         const parts = url.split('/upload/');
         if (parts.length < 2) return null;
-        // Remove version prefix (v123456/) and file extension
         const pathAfterUpload = parts[1].replace(/^v\d+\//, '');
-        const publicId = pathAfterUpload.replace(/\.[^/.]+$/, '');
-        return publicId;
+        return pathAfterUpload.replace(/\.[^/.]+$/, '');
     } catch {
         return null;
     }
 };
 
-// -------------------------------------------------------
-// Helper: Delete image from Cloudinary by public_id
-// -------------------------------------------------------
 const deleteCloudinaryImage = async (publicId) => {
     if (!publicId) return;
     try {
         const result = await cloudinary.uploader.destroy(publicId);
-        console.log(`🗑️  Cloudinary image deleted: ${publicId}`, result);
+        console.log(`Cloudinary image deleted: ${publicId}`, result);
     } catch (error) {
-        console.error(`❌ Failed to delete Cloudinary image: ${publicId}`, error.message);
+        console.error(`Failed to delete Cloudinary image: ${publicId}`, error.message);
     }
 };
 
-// ===========================================
-// @desc    Get all books (with filters)
-// @route   GET /api/books
-// @access  Public
-// ===========================================
+const encode = (value) => encodeURIComponent(String(value));
+
+const getBookRowById = async (id) => {
+    const { data } = await supabaseFetch(
+        `/books?id=eq.${encode(id)}&select=*`
+    );
+    return data[0] || null;
+};
+
+const buildBookPayload = (body) => {
+    const payload = {};
+
+    if (body.title !== undefined) payload.title = body.title;
+    if (body.subject !== undefined) payload.subject = body.subject;
+    if (body.author !== undefined) payload.author = body.author;
+    if (body.semester !== undefined) payload.semester = Number(body.semester);
+    if (body.department !== undefined) payload.department = body.department;
+    if (body.condition !== undefined) payload.condition = body.condition;
+    if (body.price !== undefined) payload.price = Number(body.price);
+    if (body.description !== undefined) payload.description = body.description;
+    if (body.contactInfo !== undefined) payload.contact_info = body.contactInfo;
+    if (body.imageUrl !== undefined) payload.image_url = body.imageUrl;
+    if (body.imagePublicId !== undefined) payload.image_public_id = body.imagePublicId;
+
+    return payload;
+};
+
 const getBooks = async (req, res, next) => {
     try {
         const {
@@ -61,61 +64,41 @@ const getBooks = async (req, res, next) => {
             limit = 20,
         } = req.query;
 
-        const filter = {};
+        const currentPage = Math.max(Number(page), 1);
+        const pageSize = Math.max(Number(limit), 1);
+        const params = new URLSearchParams({
+            select: '*',
+            order: 'created_at.desc',
+            limit: String(pageSize),
+            offset: String((currentPage - 1) * pageSize),
+        });
 
-        // Text search across title, author, subject
         if (search) {
-            filter.$or = [
-                { title: { $regex: search, $options: 'i' } },
-                { author: { $regex: search, $options: 'i' } },
-                { subject: { $regex: search, $options: 'i' } },
-            ];
+            const cleanSearch = String(search).replace(/[(),]/g, ' ').trim();
+            params.append(
+                'or',
+                `(title.ilike.*${cleanSearch}*,author.ilike.*${cleanSearch}*,subject.ilike.*${cleanSearch}*)`
+            );
         }
 
-        // Filter by semester
-        if (semester && semester !== 'all') {
-            filter.semester = Number(semester);
-        }
+        if (semester && semester !== 'all') params.append('semester', `eq.${semester}`);
+        if (department && department !== 'all') params.append('department', `eq.${department}`);
+        if (condition && condition !== 'all') params.append('condition', `eq.${condition}`);
+        if (maxPrice) params.append('price', `lte.${maxPrice}`);
+        params.append('sold', `eq.${sold !== undefined ? sold === 'true' : false}`);
 
-        // Filter by department
-        if (department && department !== 'all') {
-            filter.department = department;
-        }
-
-        // Filter by condition
-        if (condition && condition !== 'all') {
-            filter.condition = condition;
-        }
-
-        // Filter by max price
-        if (maxPrice) {
-            filter.price = { $lte: Number(maxPrice) };
-        }
-
-        // Filter by sold status (default: show unsold)
-        if (sold !== undefined) {
-            filter.sold = sold === 'true';
-        } else {
-            filter.sold = false;
-        }
-
-        const skip = (Number(page) - 1) * Number(limit);
-
-        const [books, total] = await Promise.all([
-            Book.find(filter)
-                .populate('seller', 'name email campus')
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(Number(limit)),
-            Book.countDocuments(filter),
-        ]);
+        const { data, count } = await supabaseFetch(`/books?${params.toString()}`, {
+            headers: { Prefer: 'count=exact' },
+        });
+        const books = data.map(toBook);
+        const total = count ?? books.length;
 
         res.json({
             success: true,
             count: books.length,
             total,
-            totalPages: Math.ceil(total / Number(limit)),
-            currentPage: Number(page),
+            totalPages: Math.ceil(total / pageSize),
+            currentPage,
             books,
         });
     } catch (error) {
@@ -123,17 +106,9 @@ const getBooks = async (req, res, next) => {
     }
 };
 
-// ===========================================
-// @desc    Get single book
-// @route   GET /api/books/:id
-// @access  Public
-// ===========================================
 const getBook = async (req, res, next) => {
     try {
-        const book = await Book.findById(req.params.id).populate(
-            'seller',
-            'name email campus department semester'
-        );
+        const book = await getBookRowById(req.params.id);
 
         if (!book) {
             return res.status(404).json({
@@ -144,90 +119,46 @@ const getBook = async (req, res, next) => {
 
         res.json({
             success: true,
-            book,
+            book: toBook(book),
         });
     } catch (error) {
         next(error);
     }
 };
 
-// ===========================================
-// @desc    Create a new book listing
-// @route   POST /api/books
-// @access  Private
-// Flow:    Frontend → Express → Cloudinary (upload) → MongoDB (save URL)
-// ===========================================
 const createBook = async (req, res, next) => {
     try {
-        const {
-            title,
-            subject,
-            author,
-            semester,
-            department,
-            condition,
-            price,
-            description,
-            contactInfo,
-        } = req.body;
-
-        // Cloudinary upload handled by multer-storage-cloudinary middleware
-        // req.file.path = Cloudinary secure URL
-        // req.file.filename = Cloudinary public_id
-        let imageUrl = '';
-        let imagePublicId = '';
+        const payload = buildBookPayload(req.body);
 
         if (req.file) {
-            imageUrl = req.file.path; // Cloudinary returns the secure URL here
-            imagePublicId = req.file.filename; // Cloudinary public_id for deletion
+            payload.image_url = req.file.path;
+            payload.image_public_id = req.file.filename;
         }
 
-        const book = await Book.create({
-            title,
-            subject,
-            author,
-            semester,
-            department,
-            condition,
-            price,
-            imageUrl,
-            imagePublicId,
-            description,
-            seller: req.user._id,
-            sellerName: req.user.name,
-            sellerEmail: req.user.email,
-            campus: req.user.campus,
-            contactInfo,
-        });
+        payload.seller = req.user.id;
+        payload.seller_name = req.user.name;
+        payload.seller_email = req.user.email;
+        payload.campus = req.user.campus;
 
-        // Populate seller info for response
-        const populatedBook = await Book.findById(book._id).populate(
-            'seller',
-            'name email campus'
-        );
+        const { data } = await supabaseFetch('/books?select=*', {
+            method: 'POST',
+            headers: { Prefer: 'return=representation' },
+            body: JSON.stringify(payload),
+        });
 
         res.status(201).json({
             success: true,
             message: 'Book listed successfully',
-            book: populatedBook,
+            book: toBook(data[0]),
         });
     } catch (error) {
         next(error);
     }
 };
 
-// ===========================================
-// @desc    Update a book listing
-// @route   PUT /api/books/:id
-// @access  Private (owner only)
-// If user uploads a new image:
-//   1. Delete old image from Cloudinary
-//   2. Upload new image to Cloudinary
-//   3. Update imageUrl in MongoDB
-// ===========================================
 const updateBook = async (req, res, next) => {
     try {
-        let book = await Book.findById(req.params.id);
+        const book = await getBookRowById(req.params.id);
 
         if (!book) {
             return res.status(404).json({
@@ -236,54 +167,50 @@ const updateBook = async (req, res, next) => {
             });
         }
 
-        // Verify ownership — only the seller can update
-        if (book.seller.toString() !== req.user._id.toString()) {
+        if (book.seller !== req.user.id) {
             return res.status(403).json({
                 success: false,
                 message: 'Not authorized to update this listing',
             });
         }
 
-        // If a new image was uploaded, delete the old one from Cloudinary
+        const payload = buildBookPayload(req.body);
+
         if (req.file) {
-            // Delete old image from Cloudinary (if it exists)
-            if (book.imagePublicId) {
-                await deleteCloudinaryImage(book.imagePublicId);
-            } else if (book.imageUrl) {
-                // Fallback: extract public_id from URL if imagePublicId wasn't stored
-                const oldPublicId = getPublicIdFromUrl(book.imageUrl);
-                await deleteCloudinaryImage(oldPublicId);
+            if (book.image_public_id) {
+                await deleteCloudinaryImage(book.image_public_id);
+            } else if (book.image_url) {
+                await deleteCloudinaryImage(getPublicIdFromUrl(book.image_url));
             }
 
-            // Set new Cloudinary image data
-            req.body.imageUrl = req.file.path;
-            req.body.imagePublicId = req.file.filename;
+            payload.image_url = req.file.path;
+            payload.image_public_id = req.file.filename;
         }
 
-        book = await Book.findByIdAndUpdate(req.params.id, req.body, {
-            new: true,
-            runValidators: true,
-        }).populate('seller', 'name email campus');
+        payload.updated_at = new Date().toISOString();
+
+        const { data } = await supabaseFetch(
+            `/books?id=eq.${encode(req.params.id)}&select=*`,
+            {
+                method: 'PATCH',
+                headers: { Prefer: 'return=representation' },
+                body: JSON.stringify(payload),
+            }
+        );
 
         res.json({
             success: true,
             message: 'Book updated successfully',
-            book,
+            book: toBook(data[0]),
         });
     } catch (error) {
         next(error);
     }
 };
 
-// ===========================================
-// @desc    Delete a book listing
-// @route   DELETE /api/books/:id
-// @access  Private (owner only)
-// Also deletes the image from Cloudinary
-// ===========================================
 const deleteBook = async (req, res, next) => {
     try {
-        const book = await Book.findById(req.params.id);
+        const book = await getBookRowById(req.params.id);
 
         if (!book) {
             return res.status(404).json({
@@ -292,31 +219,22 @@ const deleteBook = async (req, res, next) => {
             });
         }
 
-        // Verify ownership
-        if (book.seller.toString() !== req.user._id.toString()) {
+        if (book.seller !== req.user.id) {
             return res.status(403).json({
                 success: false,
                 message: 'Not authorized to delete this listing',
             });
         }
 
-        // Delete image from Cloudinary before removing from DB
-        if (book.imagePublicId) {
-            await deleteCloudinaryImage(book.imagePublicId);
-        } else if (book.imageUrl && book.imageUrl.includes('cloudinary')) {
-            // Fallback: extract public_id from URL
-            const publicId = getPublicIdFromUrl(book.imageUrl);
-            await deleteCloudinaryImage(publicId);
+        if (book.image_public_id) {
+            await deleteCloudinaryImage(book.image_public_id);
+        } else if (book.image_url && book.image_url.includes('cloudinary')) {
+            await deleteCloudinaryImage(getPublicIdFromUrl(book.image_url));
         }
 
-        // Remove book from MongoDB
-        await Book.findByIdAndDelete(req.params.id);
-
-        // Remove from all users' wishlists
-        await User.updateMany(
-            { wishlist: req.params.id },
-            { $pull: { wishlist: req.params.id } }
-        );
+        await supabaseFetch(`/books?id=eq.${encode(req.params.id)}`, {
+            method: 'DELETE',
+        });
 
         res.json({
             success: true,
@@ -327,14 +245,9 @@ const deleteBook = async (req, res, next) => {
     }
 };
 
-// ===========================================
-// @desc    Toggle wishlist (add/remove)
-// @route   POST /api/books/:id/wishlist
-// @access  Private
-// ===========================================
 const toggleWishlist = async (req, res, next) => {
     try {
-        const book = await Book.findById(req.params.id);
+        const book = await getBookRowById(req.params.id);
 
         if (!book) {
             return res.status(404).json({
@@ -343,40 +256,49 @@ const toggleWishlist = async (req, res, next) => {
             });
         }
 
-        const user = await User.findById(req.user._id);
-        const bookIndex = user.wishlist.indexOf(req.params.id);
+        const { data: existing } = await supabaseFetch(
+            `/wishlists?user_id=eq.${encode(req.user.id)}&book_id=eq.${encode(req.params.id)}&select=book_id`
+        );
 
-        if (bookIndex > -1) {
-            // Remove from wishlist
-            user.wishlist.splice(bookIndex, 1);
+        let message;
+
+        if (existing.length > 0) {
+            await supabaseFetch(
+                `/wishlists?user_id=eq.${encode(req.user.id)}&book_id=eq.${encode(req.params.id)}`,
+                { method: 'DELETE' }
+            );
+            message = 'Removed from wishlist';
         } else {
-            // Add to wishlist
-            user.wishlist.push(req.params.id);
+            await supabaseFetch('/wishlists', {
+                method: 'POST',
+                body: JSON.stringify({
+                    user_id: req.user.id,
+                    book_id: req.params.id,
+                }),
+            });
+            message = 'Added to wishlist';
         }
 
-        await user.save();
+        const { data: wishlist } = await supabaseFetch(
+            `/wishlists?user_id=eq.${encode(req.user.id)}&select=book_id`
+        );
 
         res.json({
             success: true,
-            wishlist: user.wishlist,
-            message:
-                bookIndex > -1 ? 'Removed from wishlist' : 'Added to wishlist',
+            wishlist: wishlist.map((item) => item.book_id),
+            message,
         });
     } catch (error) {
         next(error);
     }
 };
 
-// ===========================================
-// @desc    Get my book listings
-// @route   GET /api/books/my-books
-// @access  Private
-// ===========================================
 const getMyBooks = async (req, res, next) => {
     try {
-        const books = await Book.find({ seller: req.user._id })
-            .populate('seller', 'name email campus')
-            .sort({ createdAt: -1 });
+        const { data } = await supabaseFetch(
+            `/books?seller=eq.${encode(req.user.id)}&select=*&order=created_at.desc`
+        );
+        const books = data.map(toBook);
 
         res.json({
             success: true,
@@ -388,36 +310,39 @@ const getMyBooks = async (req, res, next) => {
     }
 };
 
-// ===========================================
-// @desc    Get user's wishlist
-// @route   GET /api/books/wishlist
-// @access  Private
-// ===========================================
 const getWishlist = async (req, res, next) => {
     try {
-        const user = await User.findById(req.user._id).populate({
-            path: 'wishlist',
-            populate: { path: 'seller', select: 'name email campus' },
-        });
+        const { data: wishlist } = await supabaseFetch(
+            `/wishlists?user_id=eq.${encode(req.user.id)}&select=book_id`
+        );
+        const ids = wishlist.map((item) => item.book_id);
+
+        if (ids.length === 0) {
+            return res.json({
+                success: true,
+                count: 0,
+                books: [],
+            });
+        }
+
+        const { data } = await supabaseFetch(
+            `/books?id=in.(${ids.map(encode).join(',')})&select=*&order=created_at.desc`
+        );
+        const books = data.map(toBook);
 
         res.json({
             success: true,
-            count: user.wishlist.length,
-            books: user.wishlist,
+            count: books.length,
+            books,
         });
     } catch (error) {
         next(error);
     }
 };
 
-// ===========================================
-// @desc    Mark book as sold / available
-// @route   PUT /api/books/:id/sold
-// @access  Private (owner only)
-// ===========================================
 const markAsSold = async (req, res, next) => {
     try {
-        let book = await Book.findById(req.params.id);
+        const book = await getBookRowById(req.params.id);
 
         if (!book) {
             return res.status(404).json({
@@ -426,21 +351,30 @@ const markAsSold = async (req, res, next) => {
             });
         }
 
-        // Verify ownership
-        if (book.seller.toString() !== req.user._id.toString()) {
+        if (book.seller !== req.user.id) {
             return res.status(403).json({
                 success: false,
                 message: 'Not authorized to update this listing',
             });
         }
 
-        book.sold = !book.sold;
-        await book.save();
+        const { data } = await supabaseFetch(
+            `/books?id=eq.${encode(req.params.id)}&select=*`,
+            {
+                method: 'PATCH',
+                headers: { Prefer: 'return=representation' },
+                body: JSON.stringify({
+                    sold: !book.sold,
+                    updated_at: new Date().toISOString(),
+                }),
+            }
+        );
+        const updatedBook = toBook(data[0]);
 
         res.json({
             success: true,
-            book,
-            message: book.sold ? 'Book marked as sold' : 'Book marked as available',
+            book: updatedBook,
+            message: updatedBook.sold ? 'Book marked as sold' : 'Book marked as available',
         });
     } catch (error) {
         next(error);

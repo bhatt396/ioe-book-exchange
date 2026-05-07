@@ -1,17 +1,29 @@
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
-const User = require('../models/User');
+const { supabaseFetch } = require('../config/db');
+const { toUser } = require('../utils/recordMappers');
 
-// Generate JWT token
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
         expiresIn: process.env.JWT_EXPIRE || '7d',
     });
 };
 
-// @desc    Register a new user
-// @route   POST /api/auth/register
-// @access  Public
+const getWishlistIds = async (userId) => {
+    const { data } = await supabaseFetch(
+        `/wishlists?user_id=eq.${encodeURIComponent(userId)}&select=book_id`
+    );
+    return data.map((item) => item.book_id);
+};
+
+const findUserByEmail = async (email) => {
+    const { data } = await supabaseFetch(
+        `/users?email=eq.${encodeURIComponent(email.toLowerCase())}&select=*`
+    );
+    return data[0] || null;
+};
+
 const register = async (req, res, next) => {
     try {
         const errors = validationResult(req);
@@ -23,9 +35,9 @@ const register = async (req, res, next) => {
         }
 
         const { name, email, password, campus, department, semester } = req.body;
+        const normalizedEmail = email.toLowerCase();
 
-        // Check if user already exists
-        const existingUser = await User.findOne({ email });
+        const existingUser = await findUserByEmail(normalizedEmail);
         if (existingUser) {
             return res.status(400).json({
                 success: false,
@@ -33,40 +45,35 @@ const register = async (req, res, next) => {
             });
         }
 
-        // Create user
-        const user = await User.create({
-            name,
-            email,
-            password,
-            campus,
-            department,
-            semester,
+        const salt = await bcrypt.genSalt(12);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const { data: users } = await supabaseFetch('/users?select=*', {
+            method: 'POST',
+            headers: { Prefer: 'return=representation' },
+            body: JSON.stringify({
+                name,
+                email: normalizedEmail,
+                password: hashedPassword,
+                campus,
+                department,
+                semester: Number(semester),
+            }),
         });
 
-        // Generate token
-        const token = generateToken(user._id);
+        const user = toUser(users[0]);
+        const token = generateToken(user.id);
 
         res.status(201).json({
             success: true,
             token,
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                campus: user.campus,
-                department: user.department,
-                semester: user.semester,
-                wishlist: user.wishlist,
-            },
+            user,
         });
     } catch (error) {
         next(error);
     }
 };
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
 const login = async (req, res, next) => {
     try {
         const errors = validationResult(req);
@@ -78,18 +85,16 @@ const login = async (req, res, next) => {
         }
 
         const { email, password } = req.body;
+        const userRow = await findUserByEmail(email);
 
-        // Find user and include password for comparison
-        const user = await User.findOne({ email }).select('+password');
-        if (!user) {
+        if (!userRow) {
             return res.status(401).json({
                 success: false,
                 message: 'Invalid email or password',
             });
         }
 
-        // Check password
-        const isMatch = await user.comparePassword(password);
+        const isMatch = await bcrypt.compare(password, userRow.password);
         if (!isMatch) {
             return res.status(401).json({
                 success: false,
@@ -97,44 +102,29 @@ const login = async (req, res, next) => {
             });
         }
 
-        // Generate token
-        const token = generateToken(user._id);
+        const wishlist = await getWishlistIds(userRow.id);
+        const user = toUser(userRow, wishlist);
+        const token = generateToken(user.id);
 
         res.json({
             success: true,
             token,
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                campus: user.campus,
-                department: user.department,
-                semester: user.semester,
-                wishlist: user.wishlist,
-            },
+            user,
         });
     } catch (error) {
         next(error);
     }
 };
 
-// @desc    Get current logged-in user
-// @route   GET /api/auth/me
-// @access  Private
 const getMe = async (req, res, next) => {
     try {
-        const user = await User.findById(req.user._id).populate('wishlist');
+        const wishlist = await getWishlistIds(req.user.id);
 
         res.json({
             success: true,
             user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                campus: user.campus,
-                department: user.department,
-                semester: user.semester,
-                wishlist: user.wishlist,
+                ...req.user,
+                wishlist,
             },
         });
     } catch (error) {
@@ -142,30 +132,32 @@ const getMe = async (req, res, next) => {
     }
 };
 
-// @desc    Update user profile
-// @route   PUT /api/auth/me
-// @access  Private
 const updateProfile = async (req, res, next) => {
     try {
         const { name, campus, department, semester } = req.body;
+        const update = {
+            updated_at: new Date().toISOString(),
+        };
 
-        const user = await User.findByIdAndUpdate(
-            req.user._id,
-            { name, campus, department, semester },
-            { new: true, runValidators: true }
+        if (name !== undefined) update.name = name;
+        if (campus !== undefined) update.campus = campus;
+        if (department !== undefined) update.department = department;
+        if (semester !== undefined) update.semester = Number(semester);
+
+        const { data: users } = await supabaseFetch(
+            `/users?id=eq.${encodeURIComponent(req.user.id)}&select=*`,
+            {
+                method: 'PATCH',
+                headers: { Prefer: 'return=representation' },
+                body: JSON.stringify(update),
+            }
         );
+
+        const wishlist = await getWishlistIds(req.user.id);
 
         res.json({
             success: true,
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                campus: user.campus,
-                department: user.department,
-                semester: user.semester,
-                wishlist: user.wishlist,
-            },
+            user: toUser(users[0], wishlist),
         });
     } catch (error) {
         next(error);

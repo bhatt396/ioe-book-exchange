@@ -8,15 +8,12 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-const connectDB = require('./config/db');
+const { connectDB } = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 const authRoutes = require('./routes/authRoutes');
 const bookRoutes = require('./routes/bookRoutes');
 
 const app = express();
-
-// Connect to MongoDB
-connectDB();
 
 // Middleware
 app.use(
@@ -41,6 +38,7 @@ app.get('/api/health', (req, res) => {
         success: true,
         message: 'IOE Book Exchange API is running 📚',
         timestamp: new Date().toISOString(),
+        database: process.env.SUPABASE_URL ? '✅ Supabase configured' : '❌ Supabase not configured',
         cloudinary: process.env.CLOUDINARY_CLOUD_NAME ? '✅ Configured' : '❌ Not configured',
     });
 });
@@ -48,12 +46,24 @@ app.get('/api/health', (req, res) => {
 // Error handler (must be after routes)
 app.use(errorHandler);
 
-// Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`\n🚀 Server running on port ${PORT}`);
-    console.log(`📚 IOE Book Exchange API`);
-    console.log(`🌐 http://localhost:${PORT}`);
-    console.log(`❤️  Health: http://localhost:${PORT}/api/health`);
-    console.log(`☁️  Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? 'Configured' : 'NOT CONFIGURED — add credentials to .env'}\n`);
-});
+
+const startServer = async () => {
+    try {
+        await connectDB();
+
+        app.listen(PORT, () => {
+            console.log(`\n🚀 Server running on port ${PORT}`);
+            console.log(`📚 IOE Book Exchange API`);
+            console.log(`🌐 http://localhost:${PORT}`);
+            console.log(`❤️  Health: http://localhost:${PORT}/api/health`);
+            console.log(`🗄️  Supabase: ${process.env.SUPABASE_URL ? 'Configured' : 'NOT CONFIGURED — add credentials to .env'}`);
+            console.log(`☁️  Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? 'Configured' : 'NOT CONFIGURED — add credentials to .env'}\n`);
+        });
+    } catch (error) {
+        console.error(`❌ Startup failed: ${error.message}`);
+        process.exit(1);
+    }
+};
+
+startServer();

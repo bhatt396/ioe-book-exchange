@@ -1,7 +1,7 @@
 const errorHandler = (err, req, res, next) => {
     console.error('❌ Error:', err.message);
 
-    // Mongoose duplicate key error
+    // Duplicate key error
     if (err.code === 11000) {
         const field = Object.keys(err.keyValue)[0];
         return res.status(400).json({
@@ -10,7 +10,15 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    // Mongoose validation error
+    // Supabase/Postgres duplicate key error
+    if (err.code === '23505') {
+        return res.status(400).json({
+            success: false,
+            message: 'A record with these details already exists',
+        });
+    }
+
+    // Validation error
     if (err.name === 'ValidationError') {
         const messages = Object.values(err.errors).map((e) => e.message);
         return res.status(400).json({
@@ -19,7 +27,7 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    // Mongoose bad ObjectId
+    // Invalid resource id
     if (err.name === 'CastError') {
         return res.status(400).json({
             success: false,

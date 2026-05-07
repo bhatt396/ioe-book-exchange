@@ -1,0 +1,40 @@
+const toUser = (row, wishlist = []) => ({
+    id: row.id,
+    _id: row.id,
+    name: row.name,
+    email: row.email,
+    campus: row.campus,
+    department: row.department,
+    semester: row.semester,
+    avatar: row.avatar || '',
+    wishlist,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+});
+
+const toBook = (row) => ({
+    id: row.id,
+    _id: row.id,
+    title: row.title,
+    subject: row.subject,
+    author: row.author,
+    semester: row.semester,
+    department: row.department,
+    condition: row.condition,
+    price: Number(row.price),
+    imageUrl: row.image_url || '',
+    image: row.image_url || '',
+    imagePublicId: row.image_public_id || '',
+    description: row.description || '',
+    seller: row.seller,
+    sellerName: row.seller_name,
+    sellerEmail: row.seller_email,
+    campus: row.campus,
+    sold: row.sold,
+    contactInfo: row.contact_info || '',
+    listedAt: row.created_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+});
+
+module.exports = { toUser, toBook };
