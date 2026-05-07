@@ -51,7 +51,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-10 border-t border-background/10 pt-6 text-center text-sm text-background/40">
-          © {new Date().getFullYear()} ReRead IOE. Made with ♥ for IOE students.
+          © {new Date().getFullYear()} ReRead IOE.
         </div>
       </div>
     </footer>
