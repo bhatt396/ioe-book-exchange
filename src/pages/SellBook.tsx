@@ -11,7 +11,7 @@ import { departments, semesters, conditions } from "@/data/mockBooks";
 import { Upload, BookPlus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { booksAPI } from "@/lib/api";
+import { booksAPI, getErrorMessage } from "@/lib/api";
 
 const SellBook = () => {
   const { toast } = useToast();
@@ -88,10 +88,10 @@ const SellBook = () => {
       });
 
       navigate("/dashboard");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Failed to List Book",
-        description: error.message || "Something went wrong. Please try again.",
+        description: getErrorMessage(error, "Something went wrong. Please try again."),
         variant: "destructive",
       });
     } finally {

@@ -25,7 +25,7 @@ This project emphasizes **backend architecture, RESTful APIs, and database model
 **Backend:**
 
 - Express.js
-- MongoDB (with Mongoose)
+- Supabase Postgres
 - RESTful APIs
 - Cloudinary for image storage
 - JWT Authentication
@@ -87,10 +87,19 @@ cd reread-ioe
 # Step 3: Install dependencies
 npm install
 
-# Step 4: Start backend server
+# Step 4: Configure backend environment
+cp backend/.env.example backend/.env
+# Add SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET, and Cloudinary keys
+
+# Step 5: Create Supabase tables
+# Run backend/supabase/schema.sql in the Supabase SQL editor.
+
+# Step 6: Start backend server
+cd backend
+npm install
 npm run dev
 
-# Step 5: Start frontend (if separate)
-cd client
+# Step 7: Start frontend in another terminal
+cd ..
 npm install
 npm run dev

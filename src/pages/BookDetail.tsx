@@ -2,12 +2,13 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { booksAPI } from "@/lib/api";
+import { booksAPI, getErrorMessage } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Heart, MessageCircle, MapPin, Calendar, User, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { Book } from "@/data/mockBooks";
 
 const conditionColors: Record<string, string> = {
   New: "bg-success text-success-foreground",
@@ -19,7 +20,7 @@ const BookDetail = () => {
   const { id } = useParams();
   const { user, refreshUser } = useAuth();
   const { toast } = useToast();
-  const [book, setBook] = useState<any>(null);
+  const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [wishlistLoading, setWishlistLoading] = useState(false);
 
@@ -59,10 +60,10 @@ const BookDetail = () => {
         description: data.message.includes("Added") ? "Book saved to your wishlist." : "Book removed from your wishlist.",
       });
       await refreshUser();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to update wishlist.",
+        description: getErrorMessage(error, "Failed to update wishlist."),
         variant: "destructive",
       });
     } finally {
@@ -100,6 +101,7 @@ const BookDetail = () => {
   }
 
   const listedDate = book.createdAt ? new Date(book.createdAt).toLocaleDateString() : "Unknown";
+  const imageSrc = book.imageUrl || book.image || "/placeholder.svg";
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -114,7 +116,7 @@ const BookDetail = () => {
             {/* Image */}
             <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
               <img
-                src={book.image?.startsWith('http') ? book.image : `http://localhost:5000${book.image}`}
+                src={imageSrc}
                 alt={book.title}
                 className="aspect-[3/4] w-full object-cover"
               />

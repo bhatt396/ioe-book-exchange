@@ -10,6 +10,7 @@ import { departments, semesters } from "@/data/mockBooks";
 import { BookOpen, ArrowRight, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/api";
 
 const campuses = [
   "Pulchowk Campus",
@@ -61,10 +62,10 @@ const Signup = () => {
         description: "Welcome to ReRead IOE. Your account has been created successfully.",
       });
       navigate("/dashboard");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Registration Failed",
-        description: error.message || "Something went wrong. Please try again.",
+        description: getErrorMessage(error, "Something went wrong. Please try again."),
         variant: "destructive",
       });
     } finally {

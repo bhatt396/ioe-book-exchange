@@ -1,5 +1,6 @@
 export interface Book {
   id: string;
+  _id?: string;
   title: string;
   subject: string;
   author: string;
@@ -8,11 +9,13 @@ export interface Book {
   condition: "New" | "Good" | "Used";
   price: number;
   image: string;
+  imageUrl?: string;
   description: string;
   sellerName: string;
   sellerEmail: string;
   campus: string;
   listedAt: string;
+  createdAt?: string;
   sold: boolean;
 }
 

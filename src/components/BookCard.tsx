@@ -11,6 +11,8 @@ const conditionColors: Record<Book["condition"], string> = {
 };
 
 const BookCard = ({ book }: { book: Book }) => {
+  const imageSrc = book.imageUrl || book.image || "/placeholder.svg";
+
   return (
     <motion.div
       whileHover={{ y: -4 }}
@@ -20,7 +22,7 @@ const BookCard = ({ book }: { book: Book }) => {
         <Card className="group overflow-hidden shadow-card transition-shadow hover:shadow-card-hover">
           <div className="aspect-[3/4] overflow-hidden bg-muted">
             <img
-              src={book.image}
+              src={imageSrc}
               alt={book.title}
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
               loading="lazy"

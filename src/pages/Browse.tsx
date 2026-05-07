@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import BookCard from "@/components/BookCard";
-import { departments, semesters, conditions } from "@/data/mockBooks";
+import { departments, semesters, conditions, type Book } from "@/data/mockBooks";
 import { booksAPI } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,7 +18,7 @@ const Browse = () => {
   const [department, setDepartment] = useState(searchParams.get("department") || "all");
   const [condition, setCondition] = useState("all");
   const [maxPrice, setMaxPrice] = useState("");
-  const [books, setBooks] = useState<any[]>([]);
+  const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
 

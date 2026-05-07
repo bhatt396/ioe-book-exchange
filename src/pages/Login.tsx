@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { BookOpen, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/api";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -28,10 +29,10 @@ const Login = () => {
         description: "You have been logged in successfully.",
       });
       navigate("/dashboard");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Login Failed",
-        description: error.message || "Invalid email or password",
+        description: getErrorMessage(error, "Invalid email or password"),
         variant: "destructive",
       });
     } finally {

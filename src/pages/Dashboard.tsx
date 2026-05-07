@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import BookCard from "@/components/BookCard";
-import { booksAPI } from "@/lib/api";
+import { booksAPI, getErrorMessage } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import type { Book } from "@/data/mockBooks";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Heart, CheckCircle, User, Settings, Plus, Loader2, LogOut } from "lucide-react";
@@ -16,8 +17,8 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [myBooks, setMyBooks] = useState<any[]>([]);
-  const [wishlistBooks, setWishlistBooks] = useState<any[]>([]);
+  const [myBooks, setMyBooks] = useState<Book[]>([]);
+  const [wishlistBooks, setWishlistBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,7 +30,7 @@ const Dashboard = () => {
     if (user) {
       fetchData();
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, navigate]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -55,10 +56,10 @@ const Dashboard = () => {
         description: data.book.sold ? "Book is now marked as sold." : "Book is now available again.",
       });
       fetchData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to update book status.",
+        description: getErrorMessage(error, "Failed to update book status."),
         variant: "destructive",
       });
     }
@@ -72,10 +73,10 @@ const Dashboard = () => {
         description: "Your book listing has been removed.",
       });
       fetchData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to delete book.",
+        description: getErrorMessage(error, "Failed to delete book."),
         variant: "destructive",
       });
     }
